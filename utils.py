@@ -1,78 +1,81 @@
-import cairocffi as cairo
 import ujson as uj
 import os, random, io
 import pandas as pd
 from PIL import ImageOps, Image, ImageDraw, ImageChops
 from itertools import chain
 
-def render_single(data, magnification=4):
-    res = 256 * magnification
-    image = Image.new('L', (res, res), 255)
+def render_single(data, resolution=256, magnification=4, invert_color=False):
+    scale_factor = 256 / resolution
+    color_bg = 255 if not invert_color else 0
+    color_fg = 0 if not invert_color else 255
+    res = resolution * magnification
+    image = Image.new('L', (res, res), color_bg)
     ctx = ImageDraw.Draw(image)
     xs = list(map(lambda stroke: stroke[0], data))
     ys = list(map(lambda stroke: stroke[1], data))
     max_x = max(chain(*xs))
     max_y = max(chain(*ys))
-    add_x = lambda n: ((n * magnification) + (((res - 1) - (max_x * magnification)) // 2))
-    add_y = lambda n: ((n * magnification) + (((res - 1) - (max_y * magnification)) // 2))
+    add_x = lambda n: ((n * magnification / scale_factor) + (((res - 1) - (max_x * magnification / scale_factor)) // 2))
+    add_y = lambda n: ((n * magnification / scale_factor) + (((res - 1) - (max_y * magnification / scale_factor)) // 2))
     for stroke in data:
         ctx.line(list(zip(map(add_x, stroke[0]), map(add_y, stroke[1]))),
-            fill=0, width=magnification * 2)
+            fill=color_fg, width=magnification)
     image = image.resize((res // magnification, res // magnification),
         resample=Image.ANTIALIAS)
     result = io.BytesIO()
-    image.save(result, format='bmp')
+    image.save(result, format='png')
     return result.getvalue()
 
-def render_multiple(drawings, magnification=4):
-    res = 256 * magnification
+def render_multiple(drawings, resolution=256, magnification=4, invert_color=False):
+    scale_factor = 256 / resolution
+    color_bg = 255
+    color_fg = 255 - max(255 // len(drawings), 2500//len(drawings))
+    res = resolution * magnification
     images = []
-    color = 255 - max(255 // len(drawings), 2500//len(drawings))
     for drawing in drawings:
-        image = Image.new('L', (res, res), 255)
+        image = Image.new('L', (res, res), color_bg)
         ctx = ImageDraw.Draw(image)
         xs = list(map(lambda stroke: stroke[0], drawing))
         ys = list(map(lambda stroke: stroke[1], drawing))
         max_x = max(chain(*xs))
         max_y = max(chain(*ys))
-        add_x = lambda n: ((n * magnification) + (((res - 1) - (max_x * magnification)) // 2))
-        add_y = lambda n: ((n * magnification) + (((res - 1) - (max_y * magnification)) // 2))
+        add_x = lambda n: ((n * magnification / scale_factor) + (((res - 1) - (max_x * magnification / scale_factor)) // 2))
+        add_y = lambda n: ((n * magnification / scale_factor) + (((res - 1) - (max_y * magnification / scale_factor)) // 2))
         for stroke in drawing:
             ctx.line(list(zip(map(add_x, stroke[0]), map(add_y, stroke[1]))),
-                fill=color, width=magnification * 2)
+                fill=color_fg, width=magnification)
         images.append(image)
-    target = Image.new('L', (res, res), 255)
+    target = Image.new('L', (res, res), color_bg)
     for image in images:
         target = ImageChops.multiply(target, image)
-        # target.paste(image, (0, 0), mask)
-    out = target.resize((res // magnification, res // magnification),
+    out = target.resize((resolution, resolution),
             resample=Image.ANTIALIAS)
-    out = ImageOps.grayscale(out)
+    out = ImageOps.grayscale(out) if not invert_color else ImageChops.invert(ImageOps.grayscale(out))
     result = io.BytesIO()
     out.save(result, format='png')
     return result.getvalue()
 
-def get_pixel_data(drawing):
-    png = render_single(drawing)
-    gray = ImageOps.grayscale(Image.open(io.BytesIO(png)))
-    return list(map(lambda x: x / 255, list(gray.getdata())))
+def get_pixel_data(drawing, resolution=256, magnification=4, invert_color=False):
+    image = render_single(drawing, resolution, magnification, invert_color)
+    return list(map(lambda x: x / 255, list(Image.open(io.BytesIO(image)).getdata())))
 
 def get_dataset_files():
     root, dirs, files = list(os.walk('../dataset'))[0]
     return list(map(lambda f: os.path.join(root, f),
         filter(lambda f: f.endswith('.ndjson'), files)))
 
-def extract_random_entries(file, size, only_recognized=True):
+def extract_random_entries(file, size, recognized=None):
+    """ recognized can be None, True, or False """
     file_data = [*map(uj.loads, open(file, encoding='utf8'))]
-    if only_recognized:
-        file_data = [*filter(lambda e: e['recognized'] == True, file_data)]
+    if recognized is not None:
+        file_data = [*filter(lambda e: e['recognized'] == recognized, file_data)]
     all_indexes = list(range(len(file_data)))
     random.shuffle(all_indexes)
     indexes = all_indexes[:size]
     return [file_data[i] for i in indexes]
 
-def generate_pixel_columns(df):
-    df['pixels'] = df.apply(lambda row: get_pixel_data(row['drawing']), axis=1)
+def generate_pixel_columns(df, resolution=256, magnification=4, invert_color=False):
+    df['pixels'] = df.apply(lambda row: get_pixel_data(row['drawing'], resolution, magnification, invert_color), axis=1)
     split_df = df.pixels.apply(pd.Series).add_prefix('pixel')
     result = pd.concat([df.drop(columns=['pixels']), split_df], axis=1)
     return result
