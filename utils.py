@@ -77,5 +77,4 @@ def extract_random_entries(file, size, recognized=None):
 def generate_pixel_columns(df, resolution=256, magnification=4, invert_color=False):
     df['pixels'] = df.apply(lambda row: get_pixel_data(row['drawing'], resolution, magnification, invert_color), axis=1)
     split_df = df.pixels.apply(pd.Series).add_prefix('pixel')
-    result = pd.concat([df.drop(columns=['pixels']), split_df], axis=1)
-    return result
+    return pd.concat([df.drop(columns=['pixels']), split_df], axis=1)
