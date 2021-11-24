@@ -4,7 +4,11 @@ import pandas as pd
 from PIL import ImageOps, Image, ImageDraw, ImageChops
 from itertools import chain
 
-def render_single(data, resolution=256, magnification=4, invert_color=False):
+banned_cats = [
+    'squiggle', 'line', 'circle', 'yoga'
+]
+
+def render_single(data, resolution=256, magnification=4, invert_color=False, stroke_width_scale=1):
     scale_factor = 256 / resolution
     color_bg = 255 if not invert_color else 0
     color_fg = 0 if not invert_color else 255
@@ -19,14 +23,14 @@ def render_single(data, resolution=256, magnification=4, invert_color=False):
     add_y = lambda n: ((n * magnification / scale_factor) + (((res - 1) - (max_y * magnification / scale_factor)) // 2))
     for stroke in data:
         ctx.line(list(zip(map(add_x, stroke[0]), map(add_y, stroke[1]))),
-            fill=color_fg, width=magnification)
+            fill=color_fg, width=int(magnification * stroke_width_scale))
     image = image.resize((res // magnification, res // magnification),
         resample=Image.ANTIALIAS)
     result = io.BytesIO()
     image.save(result, format='png')
     return result.getvalue()
 
-def render_multiple(drawings, resolution=256, magnification=4, invert_color=False):
+def render_multiple(drawings, resolution=256, magnification=4, invert_color=False, stroke_width_scale=1):
     scale_factor = 256 / resolution
     color_bg = 255
     color_fg = 255 - max(255 // len(drawings), 2500//len(drawings))
@@ -43,7 +47,7 @@ def render_multiple(drawings, resolution=256, magnification=4, invert_color=Fals
         add_y = lambda n: ((n * magnification / scale_factor) + (((res - 1) - (max_y * magnification / scale_factor)) // 2))
         for stroke in drawing:
             ctx.line(list(zip(map(add_x, stroke[0]), map(add_y, stroke[1]))),
-                fill=color_fg, width=magnification)
+                fill=color_fg, width=int(magnification * stroke_width_scale))
         images.append(image)
     target = Image.new('L', (res, res), color_bg)
     for image in images:
@@ -55,14 +59,14 @@ def render_multiple(drawings, resolution=256, magnification=4, invert_color=Fals
     out.save(result, format='png')
     return result.getvalue()
 
-def get_pixel_data(drawing, resolution=256, magnification=4, invert_color=False):
-    image = render_single(drawing, resolution, magnification, invert_color)
+def get_pixel_data(drawing, resolution=256, magnification=4, invert_color=False, stroke_width_scale=1):
+    image = render_single(drawing, resolution, magnification, invert_color, stroke_width_scale)
     return list(map(lambda x: x / 255, list(Image.open(io.BytesIO(image)).getdata())))
 
 def get_dataset_files():
     root, dirs, files = list(os.walk('./dataset/'))[0]
     return list(map(lambda f: os.path.join(root, f),
-        filter(lambda f: f.endswith('.ndjson'), files)))
+        filter(lambda f: f.endswith('.ndjson') and f.split('.')[0] not in banned_cats, files)))
 
 def extract_first_entries(file, size=None, recognized=None):
     with open(file, 'r', encoding='utf8') as f:
@@ -86,7 +90,7 @@ def extract_random_entries(file, size=None, recognized=None):
     indexes = all_indexes[:size]
     return [file_data[i] for i in indexes]
 
-def generate_pixel_columns(df, resolution=256, magnification=4, invert_color=False):
-    df['pixels'] = df.apply(lambda row: get_pixel_data(row['drawing'], resolution, magnification, invert_color), axis=1)
+def generate_pixel_columns(df, resolution=256, magnification=4, invert_color=False, stroke_width_scale=1):
+    df['pixels'] = df.apply(lambda row: get_pixel_data(row['drawing'], resolution, magnification, invert_color, stroke_width_scale), axis=1)
     split_df = df.pixels.apply(pd.Series).add_prefix('pixel')
     return pd.concat([df.drop(columns=['pixels']), split_df], axis=1)
