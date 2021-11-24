@@ -60,17 +60,29 @@ def get_pixel_data(drawing, resolution=256, magnification=4, invert_color=False)
     return list(map(lambda x: x / 255, list(Image.open(io.BytesIO(image)).getdata())))
 
 def get_dataset_files():
-    root, dirs, files = list(os.walk('../dataset'))[0]
+    root, dirs, files = list(os.walk('./dataset/'))[0]
     return list(map(lambda f: os.path.join(root, f),
         filter(lambda f: f.endswith('.ndjson'), files)))
 
-def extract_random_entries(file, size, recognized=None):
+def extract_first_entries(file, size=None, recognized=None):
+    with open(file, 'r', encoding='utf8') as f:
+        line = f.readline()
+        result = []
+        while line is not None and len(result) < size if size is not None else True:
+            entry = uj.loads(line)
+            if recognized is None or entry['recognized'] == recognized:
+                result.append(entry)
+            line = f.readline()
+    return result
+
+def extract_random_entries(file, size=None, recognized=None):
     """ recognized can be None, True, or False """
     file_data = [*map(uj.loads, open(file, encoding='utf8'))]
     if recognized is not None:
         file_data = [*filter(lambda e: e['recognized'] == recognized, file_data)]
     all_indexes = list(range(len(file_data)))
     random.shuffle(all_indexes)
+    size = size if size is not None and size <= len(file_data) else len(file_data)
     indexes = all_indexes[:size]
     return [file_data[i] for i in indexes]
 
