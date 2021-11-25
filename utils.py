@@ -1,5 +1,7 @@
+from genericpath import exists
+from itsdangerous import exc
 import ujson as uj
-import os, random, io
+import os, random, io, joblib
 import pandas as pd
 from PIL import ImageOps, Image, ImageDraw, ImageChops
 from itertools import chain
@@ -94,3 +96,42 @@ def generate_pixel_columns(df, resolution=256, magnification=4, invert_color=Fal
     df['pixels'] = df.apply(lambda row: get_pixel_data(row['drawing'], resolution, magnification, invert_color, stroke_width_scale), axis=1)
     split_df = df.pixels.apply(pd.Series).add_prefix('pixel')
     return pd.concat([df.drop(columns=['pixels']), split_df], axis=1)
+
+def load_run(number, verbose=False):
+    print(os.getcwd())
+    path = os.path.join(os.getcwd(), 'runs', str(number))
+    print(path)
+    data = os.path.join(path, 'data')
+    model = os.path.join(path, 'model')
+    pca = os.path.join(path, 'pca')
+    scaler = os.path.join(path, 'scaler')
+    if not os.path.exists(path):
+        raise Exception("Run does not exist")
+    if not os.path.exists(data) or not os.path.exists(model):
+        raise Exception("Run is missing either the data or model")
+    pca_scaler_present = False
+    pca_exists = os.path.exists(pca)
+    scaler_exists = os.path.exists(scaler)
+    if pca_exists and scaler_exists:
+        pca_scaler_present = True
+    elif verbose and pca_exists and not scaler_exists:
+        print("Warning: found PCA, but scaler missing. Probably corrupt run")
+    elif verbose and not pca_exists and scaler_exists:
+        print("Warning: found scaler, but PCA missing. Probably corrupt run")
+    result = {}
+    try:
+        result['data'] = pd.read_feather(data)
+    except:
+        raise Exception("Failed loading data")
+    try:
+        result['model'] = joblib.load(model)
+    except:
+        raise Exception("Failed loading model")
+    if pca_scaler_present:
+        try:
+            result['pca'] = joblib.load(pca)
+            result['scaler'] = joblib.load(scaler)
+        except:
+            if verbose:
+                print("Warning: either the PCA or scaler failed to load. Very likely this run is corrupt")
+    return result
