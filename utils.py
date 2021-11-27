@@ -103,12 +103,12 @@ def load_run(number, verbose=False):
     print(path)
     data = os.path.join(path, 'data')
     img_params = os.path.join(path, 'img_params')
-    model = os.path.join(path, 'model')
+    models = os.path.join(path, 'models')
     pca = os.path.join(path, 'pca')
     scaler = os.path.join(path, 'scaler')
     if not os.path.exists(path):
         raise Exception("Run does not exist")
-    if not os.path.exists(data) or not os.path.exists(model):
+    if not os.path.exists(data) or not os.path.exists(models):
         raise Exception("Run is missing either the data or model")
     if not os.path.exists(img_params):
         print("Warning: the params used to generate pixel data are unknown")
@@ -129,9 +129,9 @@ def load_run(number, verbose=False):
     with open(img_params, 'r') as f:
         result['img_params'] = ast.literal_eval(f.readline())
     try:
-        result['model'] = joblib.load(model)
+        result['models'] = joblib.load(models)
     except:
-        raise Exception("Failed loading model")
+        raise Exception("Failed loading models")
     if pca_scaler_present:
         try:
             result['pca'] = joblib.load(pca)
