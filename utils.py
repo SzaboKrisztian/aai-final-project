@@ -1,7 +1,7 @@
 from genericpath import exists
 from itsdangerous import exc
 import ujson as uj
-import os, random, io, joblib
+import os, random, io, joblib, ast
 import pandas as pd
 from PIL import ImageOps, Image, ImageDraw, ImageChops
 from itertools import chain
@@ -121,13 +121,16 @@ def load_run(number, verbose=False):
     path = os.path.join(os.getcwd(), 'runs', str(number))
     print(path)
     data = os.path.join(path, 'data')
-    model = os.path.join(path, 'model')
+    img_params = os.path.join(path, 'img_params')
+    models = os.path.join(path, 'models')
     pca = os.path.join(path, 'pca')
     scaler = os.path.join(path, 'scaler')
     if not os.path.exists(path):
         raise Exception("Run does not exist")
-    if not os.path.exists(data) or not os.path.exists(model):
+    if not os.path.exists(data) or not os.path.exists(models):
         raise Exception("Run is missing either the data or model")
+    if not os.path.exists(img_params):
+        print("Warning: the params used to generate pixel data are unknown")
     pca_scaler_present = False
     pca_exists = os.path.exists(pca)
     scaler_exists = os.path.exists(scaler)
@@ -142,10 +145,12 @@ def load_run(number, verbose=False):
         result['data'] = pd.read_feather(data)
     except:
         raise Exception("Failed loading data")
+    with open(img_params, 'r') as f:
+        result['img_params'] = ast.literal_eval(f.readline())
     try:
-        result['model'] = joblib.load(model)
+        result['models'] = joblib.load(models)
     except:
-        raise Exception("Failed loading model")
+        raise Exception("Failed loading models")
     if pca_scaler_present:
         try:
             result['pca'] = joblib.load(pca)
