@@ -92,15 +92,22 @@ def extract_random_entries(file, size=None, recognized=None):
     indexes = all_indexes[:size]
     return [file_data[i] for i in indexes]
 
+def extract_best_entries(file, size=None, recognized=None, descending=True):
+    file_data = [*map(uj.loads, open(file, encoding='utf8'))]
+    if recognized is not None:
+        file_data = [*filter(lambda e: e['recognized'] == recognized, file_data)]
+    df = pd.DataFrame.from_dict(file_data, orient='columns')
+    df['complexity'] = df.apply(lambda row: complexity_score(row['drawing']), axis=1)
+    df = df.sort_values(by=['complexity'], ascending=not descending)
+    return df.reset_index(drop=True) if size is not None and size > len(df) else df[:size].reset_index(drop=True)
+
 def generate_pixel_columns(df, resolution=256, magnification=4, invert_color=False, stroke_width_scale=1):
     df['pixels'] = df.apply(lambda row: get_pixel_data(row['drawing'], resolution, magnification, invert_color, stroke_width_scale), axis=1)
     split_df = df.pixels.apply(pd.Series).add_prefix('pixel')
     return pd.concat([df.drop(columns=['pixels']), split_df], axis=1)
 
 def load_run(number, verbose=False):
-    print(os.getcwd())
     path = os.path.join(os.getcwd(), 'runs', str(number))
-    print(path)
     data = os.path.join(path, 'data')
     img_params = os.path.join(path, 'img_params')
     models = os.path.join(path, 'models')
@@ -108,8 +115,6 @@ def load_run(number, verbose=False):
     scaler = os.path.join(path, 'scaler')
     if not os.path.exists(path):
         raise Exception("Run does not exist")
-    if not os.path.exists(data) or not os.path.exists(models):
-        raise Exception("Run is missing either the data or model")
     if not os.path.exists(img_params):
         print("Warning: the params used to generate pixel data are unknown")
     pca_scaler_present = False
@@ -131,7 +136,7 @@ def load_run(number, verbose=False):
     try:
         result['models'] = joblib.load(models)
     except:
-        raise Exception("Failed loading models")
+        print("Failed loading models")
     if pca_scaler_present:
         try:
             result['pca'] = joblib.load(pca)
@@ -140,3 +145,9 @@ def load_run(number, verbose=False):
             if verbose:
                 print("Warning: either the PCA or scaler failed to load. Very likely this run is corrupt")
     return result
+
+def complexity_score(drawing):
+    total_num_points = 0
+    for stroke in drawing:
+        total_num_points += len(stroke[0])
+    return total_num_points
