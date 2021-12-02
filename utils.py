@@ -5,6 +5,8 @@ import os, random, io, joblib, ast
 import pandas as pd
 from PIL import ImageOps, Image, ImageDraw, ImageChops
 from itertools import chain
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 
 banned_cats = [
     'squiggle', 'line', 'circle', 'yoga'
@@ -70,36 +72,49 @@ def get_dataset_files():
     return list(map(lambda f: os.path.join(root, f),
         filter(lambda f: f.endswith('.ndjson') and f.split('.')[0] not in banned_cats, files)))
 
-def extract_first_entries(file, size=None, recognized=None):
-    with open(file, 'r', encoding='utf8') as f:
-        line = f.readline()
-        result = []
-        while line is not None and len(result) < size if size is not None else True:
-            entry = uj.loads(line)
-            if recognized is None or entry['recognized'] == recognized:
-                result.append(entry)
+def extract_first_entries(files, size=None, recognized=None):
+    result = []
+    for file in (files if isinstance(files, list) else [files]):
+        with open(file, 'r', encoding='utf8') as f:
             line = f.readline()
-    return result
+            entries = []
+            while line is not None and len(entries) < size if size is not None else True:
+                entry = uj.loads(line)
+                if recognized is None or entry['recognized'] == recognized:
+                    entries.append(entry)
+                line = f.readline()
+        result.append(entries)
+    flat = [item for sublist in result for item in sublist]
+    return pd.DataFrame.from_dict(flat)
 
-def extract_random_entries(file, size=None, recognized=None):
+def extract_random_entries(files, size=None, recognized=None):
     """ recognized can be None, True, or False """
-    file_data = [*map(uj.loads, open(file, encoding='utf8'))]
-    if recognized is not None:
-        file_data = [*filter(lambda e: e['recognized'] == recognized, file_data)]
-    all_indexes = list(range(len(file_data)))
-    random.shuffle(all_indexes)
-    size = size if size is not None and size <= len(file_data) else len(file_data)
-    indexes = all_indexes[:size]
-    return [file_data[i] for i in indexes]
+    result = []
+    for file in (files if isinstance(files, list) else [files]):
+        file_data = [*map(uj.loads, open(file, encoding='utf8'))]
+        if recognized is not None:
+            file_data = [*filter(lambda e: e['recognized'] == recognized, file_data)]
+        all_indexes = list(range(len(file_data)))
+        random.shuffle(all_indexes)
+        size = size if size is not None and size <= len(file_data) else len(file_data)
+        indexes = all_indexes[:size]
+        result.append([file_data[i] for i in indexes])
+    flat = [item for sublist in result for item in sublist]
+    return pd.DataFrame.from_dict(flat)
 
-def extract_best_entries(file, size=None, recognized=None, descending=True):
-    file_data = [*map(uj.loads, open(file, encoding='utf8'))]
-    if recognized is not None:
-        file_data = [*filter(lambda e: e['recognized'] == recognized, file_data)]
-    df = pd.DataFrame.from_dict(file_data, orient='columns')
-    df['complexity'] = df.apply(lambda row: complexity_score(row['drawing']), axis=1)
-    df = df.sort_values(by=['complexity'], ascending=not descending)
-    return df.reset_index(drop=True) if size is not None and size > len(df) else df[:size].reset_index(drop=True)
+def extract_best_entries(files, size=None, recognized=None, descending=True, keep_complexity=False):
+    result = []
+    for file in (files if isinstance(files, list) else [files]):
+        file_data = [*map(uj.loads, open(file, encoding='utf8'))]
+        if recognized is not None:
+            file_data = [*filter(lambda e: e['recognized'] == recognized, file_data)]
+        df = pd.DataFrame.from_dict(file_data, orient='columns')
+        df['complexity'] = df.apply(lambda row: complexity_score(row['drawing']), axis=1)
+        df = df.sort_values(by=['complexity'], ascending=not descending)
+        if not keep_complexity:
+            df = df.drop(columns=['complexity'])
+        result.append(df if size is not None and size > len(df) else df[:size])
+    return pd.concat(result, ignore_index=True).reset_index(drop=True) if len(result) > 1 else result[0].reset_index(drop=True)
 
 def generate_pixel_columns(df, resolution=256, magnification=4, invert_color=False, stroke_width_scale=1):
     df['pixels'] = df.apply(lambda row: get_pixel_data(row['drawing'], resolution, magnification, invert_color, stroke_width_scale), axis=1)
