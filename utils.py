@@ -78,11 +78,14 @@ def extract_first_entries(files, size=None, recognized=None):
         with open(file, 'r', encoding='utf8') as f:
             line = f.readline()
             entries = []
-            while line is not None and len(entries) < size if size is not None else True:
-                entry = uj.loads(line)
-                if recognized is None or entry['recognized'] == recognized:
-                    entries.append(entry)
-                line = f.readline()
+            while (len(line) >= 2) and (len(entries) < size if size is not None else True):
+                try:
+                    entry = uj.loads(line)
+                    if recognized is None or entry['recognized'] == recognized:
+                        entries.append(entry)
+                finally:
+                    line = f.readline()
+                    if line is None: break
         result.append(entries)
     flat = [item for sublist in result for item in sublist]
     return pd.DataFrame.from_dict(flat)
