@@ -105,7 +105,7 @@ def extract_random_entries(files, size=None, recognized=None):
     flat = [item for sublist in result for item in sublist]
     return pd.DataFrame.from_dict(flat)
 
-def extract_best_entries(files, size=None, recognized=None, descending=True, keep_complexity=False):
+def extract_best_entries(files, size=None, recognized=None, descending=True, keep_complexity=False, skip_first=0):
     result = []
     for file in (files if isinstance(files, list) else [files]):
         file_data = [*map(uj.loads, open(file, encoding='utf8'))]
@@ -116,7 +116,7 @@ def extract_best_entries(files, size=None, recognized=None, descending=True, kee
         df = df.sort_values(by=['complexity'], ascending=not descending)
         if not keep_complexity:
             df = df.drop(columns=['complexity'])
-        result.append(df if size is not None and size > len(df) else df[:size])
+        result.append(df if size is not None and size > len(df) else df[:size] if skip_first == 0 else df[skip_first:size+skip_first])
     return pd.concat(result, ignore_index=True).reset_index(drop=True) if len(result) > 1 else result[0].reset_index(drop=True)
 
 def generate_pixel_columns(df, resolution=256, magnification=4, invert_color=False, stroke_width_scale=1):
@@ -169,3 +169,12 @@ def complexity_score(drawing):
     for stroke in drawing:
         total_num_points += len(stroke[0])
     return total_num_points
+
+def equalize_by(dataframe: pd.DataFrame, column: str, num_entries = 1000):
+    vcs = dataframe[column].value_counts()
+    valid_classes = dict(filter(lambda entry: entry[1] >= num_entries, vcs.items()))
+    result = []
+    for code in valid_classes.keys():
+        result.append(dataframe[dataframe['countrycode'] == code].sample(num_entries))
+    result = pd.concat(result, ignore_index=True)
+    return result.sample(len(result)).reset_index()
