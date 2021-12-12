@@ -1,12 +1,9 @@
-from genericpath import exists
-from itsdangerous import exc
 import ujson as uj
 import os, random, io, joblib, ast
 import pandas as pd
 from PIL import ImageOps, Image, ImageDraw, ImageChops
 from itertools import chain
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
+from ast import literal_eval
 
 banned_cats = [
     'squiggle', 'line', 'circle', 'yoga'
@@ -116,7 +113,7 @@ def extract_best_entries(files, size=None, recognized=None, descending=True, kee
         df = df.sort_values(by=['complexity'], ascending=not descending)
         if not keep_complexity:
             df = df.drop(columns=['complexity'])
-        result.append(df if size is not None and size > len(df) else df[:size] if skip_first == 0 else df[skip_first:size+skip_first])
+        result.append(df[skip_first:] if size is None or size > len(df) else df[skip_first:size + skip_first])
     return pd.concat(result, ignore_index=True).reset_index(drop=True) if len(result) > 1 else result[0].reset_index(drop=True)
 
 def generate_pixel_columns(df, resolution=256, magnification=4, invert_color=False, stroke_width_scale=1):
@@ -178,3 +175,22 @@ def equalize_by(dataframe: pd.DataFrame, column: str, num_entries = 1000):
         result.append(dataframe[dataframe['countrycode'] == code].sample(num_entries))
     result = pd.concat(result, ignore_index=True)
     return result.sample(len(result)).reset_index()
+
+def read_stats():
+    root, dirs, files = list(os.walk('./countries/'))[0]
+    result = {}
+    for dir in dirs:
+        with open(f"./countries/{dir}/stats", 'r', encoding='utf-8') as file:
+            line = file.readline()
+            while line is not None:
+                try:
+                    temp = literal_eval(line)
+                    if isinstance(temp, list):
+                        break
+                except:
+                    continue
+                finally:
+                    line = file.readline()
+            result[dir] = temp
+
+    return result
