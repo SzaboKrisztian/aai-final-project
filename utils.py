@@ -194,3 +194,22 @@ def read_stats():
             result[dir] = temp
 
     return result
+
+# def evaluate(H, Y, beta=1.0):
+#     tp = 0
+#     tn = 0
+#     fp = 0
+#     fn = 0
+#     for i in range(len(H)):
+#         if H[i]
+#     accuracy = (tp + tn) / (tp + fp + fn + tn)
+#     sensitivity = tp / (tp + fn)
+#     specificity = tn / (fp + tn)
+#     precision = tp / (tp + fp)
+#     recall = sensitivity
+#     f_score = ( (beta**2 + 1) * precision * recall) / (beta**2 * precision + recall)
+#     auc = (sensitivity + specificity) / 2
+#     youden = sensitivity - (1 - specificity)
+#     p_plus = sensitivity / (1 - specificity)
+#     p_minus = (1 - sensitivity) / specificity
+#     dp = (np.sqrt(3) / np.pi) * (np.log(sensitivity/(1 - sensitivity) + np.log(specificity/(1 - specificity))))
