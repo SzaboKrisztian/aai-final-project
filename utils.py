@@ -162,10 +162,7 @@ def load_run(number, verbose=False):
     return result
 
 def complexity_score(drawing):
-    total_num_points = 0
-    for stroke in drawing:
-        total_num_points += len(stroke[0])
-    return total_num_points
+    return sum(list(map(lambda stroke: len(stroke[0]), drawing)))
 
 def equalize_by(dataframe: pd.DataFrame, column: str, num_entries = 1000):
     vcs = dataframe[column].value_counts()
