@@ -1,0 +1,15 @@
+[0] Config.pm:311> INFO - This is Biber 2.16
+[0] Config.pm:314> INFO - Logfile is 'paper.blg'
+[46] biber:340> INFO - === Fri Dec 17, 2021, 10:37:17
+[55] Biber.pm:415> INFO - Reading 'paper.bcf'
+[96] Biber.pm:952> INFO - Found 3 citekeys in bib section 0
+[105] Biber.pm:4340> INFO - Processing section 0
+[112] Biber.pm:4531> INFO - Looking for bibtex format file 'refs.bib' for section 0
+[112] bibtex.pm:1689> INFO - LaTeX decoding ...
+[115] bibtex.pm:1494> INFO - Found BibTeX data source 'refs.bib'
+[156] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'normalization = NFD' with 'normalization = prenormalized'
+[156] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'variable = shifted' with 'variable = non-ignorable'
+[156] Biber.pm:4168> INFO - Sorting list 'nty/global//global/global' of type 'entry' with template 'nty' and locale 'en-US'
+[156] Biber.pm:4174> INFO - No sort tailoring available for locale 'en-US'
+[161] bbl.pm:654> INFO - Writing 'paper.bbl' with encoding 'UTF-8'
+[163] bbl.pm:757> INFO - Output to paper.bbl
